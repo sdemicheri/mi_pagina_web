@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard - Ranking de uso de lenguajes de programación</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#f7fbfc;--card:#ffffff;--accent:#0f5f6f;--muted:#6b7280}
+    body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; background:var(--bg); color:#0f172a}
+    .container{max-width:1200px;margin:28px auto;padding:18px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:28px;margin:0;color:var(--accent)}
+    .controls{display:flex;gap:12px;align-items:center}
+    .card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(15,23,42,0.06)}
+    .kpi-row{display:flex;gap:12px;margin-bottom:12px}
+    .kpi{flex:1;padding:12px;border-radius:8px;background:linear-gradient(180deg,#fff,#fbffff);text-align:center}
+    .kpi .value{font-size:22px;font-weight:700;color:var(--accent)}
+    .layout{display:grid;grid-template-columns:1fr 360px;gap:14px}
+    .section{padding:12px}
+    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .table-wrap{margin-top:10px}
+    footer{margin-top:16px;color:var(--muted);font-size:13px}
+    .controls select, .controls button{padding:8px 10px;border-radius:8px;border:1px solid #e6eef0;background:#fff}
+    .conclusions{line-height:1.45}
+    img.mock{width:100%;border-radius:8px;margin-top:10px}
+    @media(max-width:900px){.layout{grid-template-columns:1fr} .charts-grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Ranking de uso de lenguajes de programación</h1>
+      <div class="controls">
+        <label for="indexSelect">Indice:</label>
+        <select id="indexSelect">
+          <option value="tiobe">TIOBE</option>
+          <option value="pypl">PYPL</option>
+          <option value="so">StackOverflow (uso)</option>
+        </select>
+        <button id="downloadCsv">Descargar CSV</button>
+      </div>
+    </header>
+
+    <!-- Resumen general -->
+    <section class="card section">
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="label">Lenguaje más usado</div>
+          <div id="topLang" class="value">Python</div>
+        </div>
+        <div class="kpi">
+          <div class="label">% (según índice)</div>
+          <div id="topVal" class="value">25.35%</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Cambio año</div>
+          <div id="delta" class="value">▲ 2.1%</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="flex:1">
+          <canvas id="barChart" height="140"></canvas>
+        </div>
+        <div style="width:360px">
+          <div class="card" style="margin-bottom:10px;padding:12px">
+            <strong>Ficha rápida</strong>
+            <p id="quickText" style="margin:6px 0;color:var(--muted)">Seleccioná un índice para actualizar los valores y el ranking. Los datos mostrados son ejemplos basados en índices públicos (TIOBE / PYPL / StackOverflow).</p>
+            <img class="mock" src='/mnt/data/A_dashboard_titled_"Ranking_de_uso_de_lenguajes_de.png' alt='mockup' />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Exploración -->
+    <div class="layout" style="margin-top:12px">
+      <div class="card section">
+        <h3 style="margin-top:0">Exploración comparativa</h3>
+        <div class="charts-grid">
+          <div>
+            <canvas id="lineChart" height="200"></canvas>
+          </div>
+          <div>
+            <canvas id="scatterChart" height="200"></canvas>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:14px">
+            <thead style="text-align:left;color:var(--muted);font-size:13px">
+              <tr><th>Lenguaje</th><th>TIOBE %</th><th>PYPL %</th><th>SO uso %</th></tr>
+            </thead>
+            <tbody id="dataTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="card section">
+        <h3 style="margin-top:0">Conclusiones</h3>
+        <div class="conclusions">
+          <p id="conclText">Python aparece como el lenguaje más utilizado en la mayoría de índices; es recomendable para empezar, especialmente si te interesa ciencia de datos, scripting o automatización.</p>
+          <ul id="recos">
+            <li>Aprendé Python para prototipado y ciencia de datos.</li>
+            <li>Considerá JavaScript si te interesa desarrollo web y full‑stack.</li>
+            <li>Si apuntás a sistemas críticos o performance, investigá C / C++.</li>
+          </ul>
+          <hr />
+          <small style="color:var(--muted)">Fuentes de ejemplo: TIOBE, PYPL, StackOverflow Developer Survey. Datos en el ejemplo son ilustrativos.</small>
+        </div>
+      </aside>
+    </div>
+
+    <footer>Hecho para uso educativo — adaptá los datos reales para producción.</footer>
+  </div>
+
+  <script>
+    // --- Datos de ejemplo (podés reemplazarlos por fetch desde una API o CSV) ---
+    const data = {
+      languages: ['Python','C','Java','C++','JavaScript','C#','PHP','SOL','R','Objective-C'],
+      tiobe: [25.35,14.94,13.45,7.57,7.19,4.92,3.43,3.41,2.01,1.86],
+      pypl:  [35.1,8.2,10.7,6.5,11.4,3.9,2.6,0.5,1.7,0.8],
+      so:    [30.4,6.1,11.8,5.2,28.9,7.2,2.3,0.1,1.4,0.6],
+      trends: {
+        years:[2010,2012,2014,2016,2018,2020,2022,2024],
+        python:[25,30,35,37,39,40,42,45],
+        cpp:[22,20,18,16,15,14,13,13],
+        java:[30,28,26,24,22,20,19,18]
+      }
+    };
+
+    // --- Utils ---
+    function topLanguage(idx){
+      const arr = data[idx];
+      let max = -Infinity, iMax=0;
+      for(let i=0;i<arr.length;i++) if(arr[i]>max){max=arr[i]; iMax=i}
+      return {lang:data.languages[iMax], val:max};
+    }
+
+    // --- Bar chart (ranking) ---
+    const barCtx = document.getElementById('barChart');
+    const barChart = new Chart(barCtx,{
+      type:'bar',
+      data:{labels:data.languages,datasets:[{label:'%',data:data.tiobe,backgroundColor: data.languages.map((l,i)=> i===0? 'rgba(15,95,111,0.9)':'rgba(15,95,111,0.6)'),borderRadius:8}]},
+      options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}} ,scales:{x:{beginAtZero:true}}}
+    });
+
+    // --- Line chart (trends) ---
+    const lineCtx = document.getElementById('lineChart');
+    const lineChart = new Chart(lineCtx,{type:'line',data:{labels:data.trends.years,datasets:[{label:'Python',data:data.trends.python,tension:0.3,fill:false},{label:'C++',data:data.trends.cpp,tension:0.3,fill:false},{label:'Java',data:data.trends.java,tension:0.3,fill:false}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+
+    // --- Scatter (PYPL vs TIOBE) ---
+    const scatterCtx = document.getElementById('scatterChart');
+    const scatterData = data.languages.map((l,i)=>({x:data.tiobe[i],y:data.pypl[i],label:l}));
+    const scatterChart = new Chart(scatterCtx,{type:'scatter',data:{datasets:[{label:'TIOBE vs PYPL',data:scatterData}]},options:{plugins:{tooltip:{callbacks:{label(ctx){const p=ctx.raw; return p.label+': TIOBE '+p.x+'% — PYPL '+p.y+'%';}}}}}});
+
+    // --- Table ---
+    function renderTable(){
+      const tbody = document.getElementById('dataTable'); tbody.innerHTML = '';
+      for(let i=0;i<data.languages.length;i++){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="padding:8px 6px;border-top:1px solid #f1f5f7">${data.languages[i]}</td><td style="padding:8px 6px;border-top:1px solid #f1f5f7">${data.tiobe[i]}%</td><td style="padding:8px 6px;border-top:1px solid #f1f5f7">${data.pypl[i]}%</td><td style="padding:8px 6px;border-top:1px solid #f1f5f7">${data.so[i]}%</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    renderTable();
+
+    // --- Update top KPI and bar when index changes ---
+    const indexSelect = document.getElementById('indexSelect');
+    const topLangEl = document.getElementById('topLang');
+    const topValEl = document.getElementById('topVal');
+    function updateIndex(idxKey){
+      const idxArray = data[idxKey];
+      // update bar data
+      barChart.data.datasets[0].data = idxArray;
+      // recolor so top is highlighted
+      const maxIndex = idxArray.indexOf(Math.max(...idxArray));
+      barChart.data.datasets[0].backgroundColor = data.languages.map((l,i)=> i===maxIndex? 'rgba(6,78,83,0.95)':'rgba(15,95,111,0.55)');
+      barChart.update();
+      const top = topLanguage(idxKey);
+      topLangEl.textContent = top.lang;
+      topValEl.textContent = top.val + '%';
+    }
+    indexSelect.addEventListener('change',()=> updateIndex(indexSelect.value));
+
+    // init
+    updateIndex('tiobe');
+
+    // --- CSV export ---
+    document.getElementById('downloadCsv').addEventListener('click',()=>{
+      const rows = [['Lenguaje','TIOBE','PYPL','StackOverflow']];
+      for(let i=0;i<data.languages.length;i++) rows.push([data.languages[i],data.tiobe[i],data.pypl[i],data.so[i]]);
+      const csv = rows.map(r=>r.join(',')).join('\n');
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'lenguajes_ranking.csv'; a.click(); URL.revokeObjectURL(url);
+    });
+
+  </script>
+</body>
+</html>
